@@ -94,7 +94,11 @@ uses a straight or package.el command directly).")
       ;; no affect on packages that are pinned, however (run 'doom purge' to
       ;; compact those after-the-fact). Some packages break when shallow cloned
       ;; (like magit and org), but we'll deal with that elsewhere.
-      straight-vc-git-default-clone-depth '(1 single-branch))
+      straight-vc-git-default-clone-depth '(1 single-branch)
+      ;; force to use ssh when https is not available.
+      straight-vc-git-default-protocol 'ssh
+      straight-vc-git-force-protocol t
+      )
 
 (with-eval-after-load 'straight
   ;; `let-alist' is built into Emacs 26 and onwards

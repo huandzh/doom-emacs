@@ -3,7 +3,10 @@
 
 ;; core.el
 (package! auto-minor-mode :pin "17cfa1b54800fdef2975c0c0531dad34846a5065")
-(package! gcmh :pin "0089f9c3a6d4e9a310d0791cf6fa8f35642ecfd9")
+(package! gcmh 
+:recipe (:host github
+          :repo "emacsmirror/gcmh")
+:pin "0089f9c3a6d4e9a310d0791cf6fa8f35642ecfd9")
 (package! explain-pause-mode
   :recipe (:host github
            :repo "lastquestion/explain-pause-mode")
