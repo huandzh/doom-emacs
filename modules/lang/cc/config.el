@@ -67,6 +67,11 @@ This is ignored by ccls.")
     :return "return"
     :yield "#require")
 
+  (when (featurep! +tree-sitter)
+    (add-hook! '(c-mode-local-vars-hook
+                 c++-mode-local-vars-hook)
+               :append #'tree-sitter!))
+
   ;; HACK Suppress 'Args out of range' error in when multiple modifications are
   ;;      performed at once in a `c++-mode' buffer, e.g. with `iedit' or
   ;;      multiple cursors.
@@ -235,7 +240,7 @@ If rtags or rdm aren't available, fail silently instead of throwing a breaking e
                c++-mode-local-vars-hook
                objc-mode-local-vars-hook
                cmake-mode-local-vars-hook)
-             #'lsp!)
+             :append #'lsp!)
 
   (map! :after ccls
         :map (c-mode-map c++-mode-map)

@@ -41,6 +41,9 @@
     (after! lsp-mode
       (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]_build\\'")))
 
+  (when (featurep! +tree-sitter)
+    (add-hook 'elixir-mode-local-vars-hook #'tree-sitter! 'append))
+
   (after! highlight-numbers
     (puthash 'elixir-mode
              "\\_<-?[[:digit:]]+\\(?:_[[:digit:]]\\{3\\}\\)*\\_>"

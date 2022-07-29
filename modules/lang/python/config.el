@@ -25,6 +25,9 @@
     ;; Use "mspyls" in eglot if in PATH
     (when (executable-find "Microsoft.Python.LanguageServer")
       (set-eglot-client! 'python-mode '("Microsoft.Python.LanguageServer"))))
+
+  (when (featurep! +tree-sitter)
+    (add-hook 'python-mode-local-vars-hook #'tree-sitter! 'append))
   :config
   (set-repl-handler! 'python-mode #'+python/open-repl
     :persist t
@@ -83,7 +86,90 @@
     (advice-add #'pythonic-activate :after-while #'+modeline-update-env-in-all-windows-h)
     (advice-add #'pythonic-deactivate :after #'+modeline-clear-env-in-all-windows-h))
 
-  (setq-hook! 'python-mode-hook tab-width python-indent-offset))
+  (setq-hook! 'python-mode-hook tab-width python-indent-offset)
+
+  ;; HACK Fix syntax highlighting on Emacs 28.1
+  ;; DEPRECATED Remove when 28.1 support is dropped
+  ;; REVIEW Revisit if a 28.2 is released with a fix
+  (when (= emacs-major-version 28)
+    (defadvice! +python--font-lock-assignment-matcher-a (regexp)
+      :override #'python-font-lock-assignment-matcher
+      (lambda (limit)
+        (cl-loop while (re-search-forward regexp limit t)
+                 unless (or (python-syntax-context 'paren)
+                            (equal (char-after) ?=))
+                 return t)))
+
+    (defadvice! +python--rx-a (&rest regexps)
+      :override #'python-rx
+      `(rx-let ((block-start       (seq symbol-start
+                                        (or "def" "class" "if" "elif" "else" "try"
+                                            "except" "finally" "for" "while" "with"
+                                            ;; Python 3.5+ PEP492
+                                            (and "async" (+ space)
+                                                 (or "def" "for" "with")))
+                                        symbol-end))
+                (dedenter          (seq symbol-start
+                                        (or "elif" "else" "except" "finally")
+                                        symbol-end))
+                (block-ender       (seq symbol-start
+                                        (or
+                                         "break" "continue" "pass" "raise" "return")
+                                        symbol-end))
+                (decorator         (seq line-start (* space) ?@ (any letter ?_)
+                                        (* (any word ?_))))
+                (defun             (seq symbol-start
+                                        (or "def" "class"
+                                            ;; Python 3.5+ PEP492
+                                            (and "async" (+ space) "def"))
+                                        symbol-end))
+                (if-name-main      (seq line-start "if" (+ space) "__name__"
+                                        (+ space) "==" (+ space)
+                                        (any ?' ?\") "__main__" (any ?' ?\")
+                                        (* space) ?:))
+                (symbol-name       (seq (any letter ?_) (* (any word ?_))))
+                (assignment-target (seq (? ?*)
+                                        (* symbol-name ?.) symbol-name
+                                        (? ?\[ (+ (not ?\])) ?\])))
+                (grouped-assignment-target (seq (? ?*)
+                                                (* symbol-name ?.) (group symbol-name)
+                                                (? ?\[ (+ (not ?\])) ?\])))
+                (open-paren        (or "{" "[" "("))
+                (close-paren       (or "}" "]" ")"))
+                (simple-operator   (any ?+ ?- ?/ ?& ?^ ?~ ?| ?* ?< ?> ?= ?%))
+                (not-simple-operator (not (or simple-operator ?\n)))
+                (operator          (or "==" ">=" "is" "not"
+                                       "**" "//" "<<" ">>" "<=" "!="
+                                       "+" "-" "/" "&" "^" "~" "|" "*" "<" ">"
+                                       "=" "%"))
+                (assignment-operator (or "+=" "-=" "*=" "/=" "//=" "%=" "**="
+                                         ">>=" "<<=" "&=" "^=" "|="
+                                         "="))
+                (string-delimiter  (seq
+                                    ;; Match even number of backslashes.
+                                    (or (not (any ?\\ ?\' ?\")) point
+                                        ;; Quotes might be preceded by an
+                                        ;; escaped quote.
+                                        (and (or (not (any ?\\)) point) ?\\
+                                             (* ?\\ ?\\) (any ?\' ?\")))
+                                    (* ?\\ ?\\)
+                                    ;; Match single or triple quotes of any kind.
+                                    (group (or  "\"\"\"" "\"" "'''" "'"))))
+                (coding-cookie (seq line-start ?# (* space)
+                                    (or
+                                     ;; # coding=<encoding name>
+                                     (: "coding" (or ?: ?=) (* space)
+                                      (group-n 1 (+ (or word ?-))))
+                                     ;; # -*- coding: <encoding name> -*-
+                                     (: "-*-" (* space) "coding:" (* space)
+                                      (group-n 1 (+ (or word ?-)))
+                                      (* space) "-*-")
+                                     ;; # vim: set fileencoding=<encoding name> :
+                                     (: "vim:" (* space) "set" (+ space)
+                                      "fileencoding" (* space) ?= (* space)
+                                      (group-n 1 (+ (or word ?-)))
+                                      (* space) ":")))))
+         (rx ,@regexps)))))
 
 
 (use-package! anaconda-mode
@@ -141,7 +227,7 @@
         :localleader
         (:prefix ("i" . "imports")
           :desc "Insert missing imports" "i" #'pyimport-insert-missing
-          :desc "Remove unused imports"  "r" #'pyimport-remove-unused
+          :desc "Remove unused imports"  "R" #'pyimport-remove-unused
           :desc "Optimize imports"       "o" #'+python/optimize-imports)))
 
 
@@ -309,6 +395,24 @@
   :when (featurep! +cython)
   :when (featurep! :checkers syntax)
   :after cython-mode)
+
+
+(use-package! pip-requirements
+  :defer t
+  :config
+  ;; HACK `pip-requirements-mode' performs a sudden HTTP request to
+  ;;   https://pypi.org/simple, which causes unexpected hangs (see #5998). This
+  ;;   advice defers this behavior until the first time completion is invoked.
+  ;; REVIEW More sensible behavior should be PRed upstream.
+  (defadvice! +python--init-completion-a (&rest args)
+    "Call `pip-requirements-fetch-packages' first time completion is invoked."
+    :before #'pip-requirements-complete-at-point
+    (unless pip-packages (pip-requirements-fetch-packages)))
+  (defadvice! +python--inhibit-pip-requirements-fetch-packages-a (fn &rest args)
+    "No-op `pip-requirements-fetch-packages', which can be expensive."
+    :around #'pip-requirements-mode
+    (letf! ((#'pip-requirements-fetch-packages #'ignore))
+      (apply fn args))))
 
 
 ;;

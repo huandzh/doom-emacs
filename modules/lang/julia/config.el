@@ -5,6 +5,12 @@
   :config
   (set-repl-handler! 'julia-mode #'+julia/open-repl)
 
+  (when (featurep! +lsp)
+    (add-hook 'julia-mode-local-vars-hook #'lsp! 'append))
+
+  (when (featurep! +tree-sitter)
+    (add-hook 'julia-mode-local-vars-hook #'tree-sitter! 'append))
+
   ;; Borrow matlab.el's fontification of math operators. From
   ;; <https://web.archive.org/web/20170326183805/https://ogbe.net/emacsconfig.html>
   (dolist (mode '(julia-mode ess-julia-mode))
@@ -65,10 +71,6 @@
     (term-set-escape-char ?\C-c)))
 
 
-(when (featurep! +lsp)
-  (add-hook 'julia-mode-local-vars-hook #'lsp! 'append))
-
-
 (use-package! lsp-julia
   :when (featurep! +lsp)
   :unless (featurep! :tools lsp +eglot)
@@ -80,12 +82,7 @@
   (unless lsp-julia-default-environment
     (setq lsp-julia-default-environment
           (or (car (last (doom-glob "~/.julia/environments/v*")))
-              "~/.julia/environments/v1.6")))
-  :config
-  ;; See non-Jedi/lsp-julia#35
-  (setq-hook! 'julia-mode-hook
-    lsp-enable-folding t
-    lsp-folding-range-limit 100))
+              "~/.julia/environments/v1.6"))))
 
 
 (use-package! eglot-jl

@@ -19,6 +19,9 @@
     (setq-hook! 'scala-mode-hook lsp-enable-indentation nil)
     (add-hook 'scala-mode-local-vars-hook #'lsp! 'append))
 
+  (when (featurep! +tree-sitter)
+    (add-hook 'scala-mode-local-vars-hook #'tree-sitter! 'append))
+
   (set-ligatures! 'scala-mode
     ;; Functional
     :def "def"

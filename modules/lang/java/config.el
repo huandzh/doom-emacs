@@ -30,6 +30,9 @@ If the depth is 2, the first two directories are removed: net.lissner.game.")
       ((featurep! :tools lsp +eglot))
       ((featurep! +lsp)       (load! "+lsp")))
 
+(when (featurep! +tree-sitter)
+  (add-hook 'java-mode-local-vars-hook #'tree-sitter! 'append))
+
 
 ;;
 ;;; Common packages

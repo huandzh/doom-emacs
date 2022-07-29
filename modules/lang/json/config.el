@@ -5,6 +5,10 @@
   :init
   (when (featurep! +lsp)
     (add-hook 'json-mode-local-vars-hook #'lsp! 'append))
+  (when (featurep! +tree-sitter)
+    (add-hook! '(json-mode-local-vars-hook
+                 jsonc-mode-local-vars-hook)
+               :append #'tree-sitter!))
   :config
   (set-electric! 'json-mode :chars '(?\n ?: ?{ ?}))
 

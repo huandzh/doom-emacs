@@ -4,8 +4,9 @@
 ;;; Packages
 
 (when (featurep! +lsp)
-  (add-hook! '(tuareg-mode-local-vars-hook reason-mode-local-vars-hook)
-             #'lsp!))
+  (add-hook! '(tuareg-mode-local-vars-hook
+               reason-mode-local-vars-hook)
+             :append #'lsp!))
 
 
 (after! tuareg
@@ -118,3 +119,7 @@
                 ((equal ext ".eliomi")
                  (setq-local ocamlformat-file-kind 'interface)))))
       (setq +format-with 'ocamlformat))))
+
+;; Tree sitter
+(eval-when! (featurep! +tree-sitter)
+  (add-hook! 'tuareg-mode-local-vars-hook #'tree-sitter))
