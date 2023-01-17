@@ -117,7 +117,6 @@ orderless."
     [remap switch-to-buffer-other-frame]  #'consult-buffer-other-frame
     [remap yank-pop]                      #'consult-yank-pop
     [remap persp-switch-to-buffer]        #'+vertico/switch-workspace-buffer)
-  (advice-add #'multi-occur :override #'consult-multi-occur)
   :config
   (defadvice! +vertico--consult-recent-file-a (&rest _args)
     "`consult-recent-file' needs to have `recentf-mode' on to work correctly"
@@ -152,7 +151,7 @@ orderless."
   (consult-customize
    consult-theme
    :preview-key (list (kbd "C-SPC") :debounce 0.5 'any))
-  (when (featurep! :lang org)
+  (when (modulep! :lang org)
     (defvar +vertico--consult-org-source
       (list :name     "Org Buffer"
             :category 'buffer
@@ -185,7 +184,7 @@ orderless."
          ("C-x C-d" . consult-dir)
          ("C-x C-j" . consult-dir-jump-file))
   :config
-  (when (featurep! :tools docker)
+  (when (modulep! :tools docker)
     (defun +vertico--consult-dir-docker-hosts ()
       "Get a list of hosts from docker."
       (when (require 'docker-tramp nil t)
@@ -213,7 +212,7 @@ orderless."
   (add-to-list 'consult-dir-sources 'consult-dir--source-tramp-local t))
 
 (use-package! consult-flycheck
-  :when (featurep! :checkers syntax)
+  :when (modulep! :checkers syntax)
   :after (consult flycheck))
 
 
@@ -263,9 +262,9 @@ orderless."
   (setf (alist-get 'package embark-keymap-alist) #'+vertico/embark-doom-package-map)
   (map! (:map embark-file-map
          :desc "Open target with sudo"        "s"   #'doom/sudo-find-file
-         (:when (featurep! :tools magit)
+         (:when (modulep! :tools magit)
           :desc "Open magit-status of target" "g"   #'+vertico/embark-magit-status)
-         (:when (featurep! :ui workspaces)
+         (:when (modulep! :ui workspaces)
           :desc "Open in new workspace"       "TAB" #'+vertico/embark-open-in-new-workspace))))
 
 
@@ -275,7 +274,7 @@ orderless."
   (map! :map minibuffer-local-map
         :desc "Cycle marginalia views" "M-A" #'marginalia-cycle)
   :config
-  (when (featurep! +icons)
+  (when (modulep! +icons)
     (add-hook 'marginalia-mode-hook #'all-the-icons-completion-marginalia-setup))
   (advice-add #'marginalia--project-root :override #'doom-project-root)
   (pushnew! marginalia-command-categories
@@ -292,19 +291,13 @@ orderless."
             '(projectile-switch-project . project-file)))
 
 
-(use-package! embark-consult
-  :after (embark consult)
-  :config
-  (add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode))
-
-
 (use-package! wgrep
   :commands wgrep-change-to-wgrep-mode
   :config (setq wgrep-auto-save-buffer t))
 
 
 (use-package! vertico-posframe
-  :when (featurep! +childframe)
+  :when (modulep! +childframe)
   :hook (vertico-mode . vertico-posframe-mode)
   :config
   (add-hook 'doom-after-reload-hook #'posframe-delete-all))

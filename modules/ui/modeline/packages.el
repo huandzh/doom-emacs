@@ -1,8 +1,9 @@
 ;; -*- no-byte-compile: t; -*-
 ;;; ui/modeline/packages.el
 
-(unless (featurep! +light)
-  (package! doom-modeline :pin "ce9899f00af40edb78f58b9af5c3685d67c8eed2"))
+(unless (modulep! +light)
+  (package! doom-modeline :pin "b66d5e5006df4cedb1119da3d83fd6c08965b830")
+  (package! compat :pin "7ca7d300d1d256f674f83932d2918d8e70cd28f6"))
 (package! anzu :pin "5abb37455ea44fa401d5f4c1bdc58adb2448db67")
-(when (featurep! :editor evil)
-  (package! evil-anzu :pin "d3f6ed4773b48767bd5f4708c7f083336a8a8a86"))
+(when (modulep! :editor evil)
+  (package! evil-anzu :pin "d1e98ee6976437164627542909a25c6946497899"))

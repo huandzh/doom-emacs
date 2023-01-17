@@ -24,8 +24,8 @@
           (expand-file-name ".attachments" (mu4e-root-maildir))))
   :config
   (when (version< mu4e-mu-version "1.8")
-    ;; Evidently the mu4e author has never heard of `define-obsolete-function-alias'.
-    ;; List of suffixes obtained by comparing mu4e~ and mu4e-- functions in `obarray'.
+    ;; Define aliases to maintain backwards compatibility. The list of suffixes
+    ;; were obtained by comparing mu4e~ and mu4e-- functions in `obarray'.
     (dolist (transferable-suffix
              '("check-requirements" "contains-line-matching" "context-ask-user"
                "context-autoswitch" "default-handler" "get-folder" "get-log-buffer"
@@ -86,9 +86,9 @@ is non-nil."
         mu4e-compose-context-policy 'ask-if-none
         ;; use helm/ivy/vertico
         mu4e-completing-read-function
-        (cond ((featurep! :completion ivy)     #'ivy-completing-read)
-              ((featurep! :completion helm)    #'completing-read)
-              ((featurep! :completion vertico) #'completing-read)
+        (cond ((modulep! :completion ivy)     #'ivy-completing-read)
+              ((modulep! :completion helm)    #'completing-read)
+              ((modulep! :completion vertico) #'completing-read)
               (t #'ido-completing-read))
         mu4e-attachment-dir
         (concat
@@ -103,10 +103,11 @@ is non-nil."
         ;; no need to ask
         mu4e-confirm-quit nil
         mu4e-headers-thread-single-orphan-prefix '("─>" . "─▶")
-        mu4e-headers-thread-orphan-prefix '("┬>" . "┬▶ ")
-        mu4e-headers-thread-last-child-prefix '("└>" . "╰▶")
-        mu4e-headers-thread-child-prefix '("├>" . "├▶")
-        mu4e-headers-thread-connection-prefix '("│" . "│ ")
+        mu4e-headers-thread-orphan-prefix        '("┬>" . "┬▶ ")
+        mu4e-headers-thread-connection-prefix    '("│ " . "│ ")
+        mu4e-headers-thread-first-child-prefix   '("├>" . "├▶")
+        mu4e-headers-thread-child-prefix         '("├>" . "├▶")
+        mu4e-headers-thread-last-child-prefix    '("└>" . "╰▶")
         ;; remove 'lists' column
         mu4e-headers-fields
         '((:account-stripe . 1)
@@ -244,15 +245,18 @@ is non-nil."
   ;; so if the header view is entered from a narrow frame,
   ;; it's probably worth trying to expand it
   (defun +mu4e-widen-frame-maybe ()
-    "Expand the frame with if it's less than `+mu4e-min-header-frame-width'."
-    (when (< (frame-width) +mu4e-min-header-frame-width)
-      (set-frame-width (selected-frame) +mu4e-min-header-frame-width)))
+    "Expand the mu4e-headers containing frame's width to `+mu4e-min-header-frame-width'."
+    (dolist (frame (frame-list))
+      (when (and (string= (buffer-name (window-buffer (frame-selected-window frame)))
+                          mu4e-headers-buffer-name)
+                 (< (frame-width) +mu4e-min-header-frame-width))
+        (set-frame-width frame +mu4e-min-header-frame-width))))
   (add-hook 'mu4e-headers-mode-hook #'+mu4e-widen-frame-maybe)
 
   (when (fboundp 'imagemagick-register-types)
     (imagemagick-register-types))
 
-  (when (featurep! :ui workspaces)
+  (when (modulep! :ui workspaces)
     (map! :map mu4e-main-mode-map
           :ne "h" #'+workspace/other))
 
@@ -337,7 +341,7 @@ Acts like a singular `mu4e-view-save-attachments', without the saving."
   ;; Due to evil, none of the marking commands work when making a visual selection in
   ;; the headers view of mu4e. Without overriding any evil commands we may actually
   ;; want to use in and evil selection, this can be easily fixed.
-  (when (featurep! :editor evil)
+  (when (modulep! :editor evil)
     (map! :map mu4e-headers-mode-map
           :v "*" #'mu4e-headers-mark-for-something
           :v "!" #'mu4e-headers-mark-for-read
@@ -362,7 +366,7 @@ This is enacted by `+mu4e~main-action-str-prettier-a' and
 
   (advice-add #'mu4e--key-val :filter-return #'+mu4e~main-keyval-str-prettier-a)
   (advice-add #'mu4e--main-action-str :override #'+mu4e~main-action-str-prettier-a)
-  (when (featurep! :editor evil)
+  (when (modulep! :editor evil)
     ;; As +mu4e~main-action-str-prettier replaces [k]ey with key q]uit should become quit
     (setq evil-collection-mu4e-end-region-misc "quit"))
 
@@ -376,7 +380,7 @@ This is enacted by `+mu4e~main-action-str-prettier-a' and
   (advice-add 'mu4e--start :around #'+mu4e-lock-start)
   (advice-add 'mu4e-quit :after #'+mu4e-lock-file-delete-maybe))
 
-(unless (featurep! +org)
+(unless (modulep! +org)
   (after! mu4e
     (defun org-msg-mode (&optional _)
       "Dummy function."
@@ -388,7 +392,7 @@ Ignores all arguments and returns nil."
 
 (use-package! org-msg
   :after mu4e
-  :when (featurep! +org)
+  :when (modulep! +org)
   :config
   (setq org-msg-options "html-postamble:nil H:5 num:nil ^:{} toc:nil author:nil email:nil tex:dvipng"
         org-msg-startup "hidestars indent inlineimages"
@@ -421,6 +425,15 @@ Usefull for affecting HTML export config.")
         :desc "attach" "C-c C-a" #'+mu4e/attach-files
         :localleader
         :desc "attach" "a" #'+mu4e/attach-files)
+
+  ;; I feel like it's reasonable to expect files to be attached
+  ;; in the order you attach them, not the reverse.
+  (defadvice! +org-msg-attach-attach-in-order-a (file &rest _args)
+    "Link FILE into the list of attachment."
+    :override #'org-msg-attach-attach
+    (interactive (list (read-file-name "File to attach: ")))
+    (let ((files (org-msg-get-prop "attachment")))
+      (org-msg-set-prop "attachment" (nconc files (list file)))))
 
   (defvar +mu4e-compose-org-msg-toggle-next t ; t to initialise org-msg
     "Whether to toggle ")
@@ -583,7 +596,7 @@ Must be set before org-msg is loaded to take effect.")
 ;;
 ;;; Gmail integration
 
-(when (featurep! +gmail)
+(when (modulep! +gmail)
   (after! mu4e
     (defvar +mu4e-gmail-accounts nil
       "Gmail accounts that do not contain \"gmail\" in address and maildir.
